@@ -1,5 +1,3 @@
-import Lexico2
-
 global num_linha
 num_linha = 1
 
@@ -11,6 +9,34 @@ c = ' '
 def arquivoOpen(nome):
     global f
     f = open(nome)
+
+
+def tipador(palavra):
+    print(palavra)
+    token = {
+        "tipo": "Tipo",
+        "valor": palavra
+    }
+    if(palavra == "Fim do Arquivo"):
+        token["tipo"] = "EOF"
+        return token
+    if(palavra[0]=='\"'):
+        token["tipo"] = "String"
+    if(palavra.isdecimal()):
+        token["tipo"] = "Numero"
+    if(palavra in ["+","-","<","<=","=>","<-","*","/","~","="]):
+        token["tipo"] = "Operador"
+    if(palavra in "{}();:~+-*/=.,@"):
+        token["tipo"] = "Delimitador"
+    if(palavra.lower() in ["class","inherits","if","then","fi","while","loop","pool","let","in","case","of","esac","new","isvoid","not","true","false"]):
+        token["tipo"] = "PR"
+    if(palavra[0].isupper()):
+        token["tipo"] = "TYPE"
+    if(token["tipo"] == "Tipo"):
+        token["tipo"] = "ID"
+    return token
+
+# PR, Class, String, Numero, Operador, Variavel, Delimitator
 
 
 def lexico():
@@ -36,11 +62,11 @@ def lexico():
 
         aux = c
         c = ' '
-        return Lexico2.tipador(aux)
+        return tipador(aux)
     else:
         c = f.read(1)
         if not c: 
-            return Lexico2.tipador("Fim do Arquivo")
+            return tipador("Fim do Arquivo")
         if c in '(-' or (c == '*' and comentario):
             aux = f.read(1)
             if aux in '*-' or (aux == ')' and comentario):
@@ -57,16 +83,16 @@ def lexico():
             if aux == '-' or aux == '=':
                 if palavra != '':
                     f.seek(f.tell()-2,0)
-                    return Lexico2.tipador(palavra)
+                    return tipador(palavra)
                 else:
-                    return Lexico2.tipador(c+aux)
+                    return tipador(c+aux)
             else:
                 if palavra != '':
                     f.seek(f.tell()-2,0)
-                    return Lexico2.tipador(palavra)
+                    return tipador(palavra)
                 else:
                     f.seek(f.tell()-1,0)
-                    return Lexico2.tipador(c)
+                    return tipador(c)
         if not comentario and not comentario_linha:
             if c == '"':
                 lemos_aspas = not lemos_aspas
@@ -74,4 +100,4 @@ def lexico():
                 palavra += c
             else:
                 if palavra != "":
-                    return Lexico2.tipador(palavra)
+                    return tipador(palavra)

@@ -1,5 +1,5 @@
 import Sintatico
 
-Sintatico.Lexico.arquivoOpen("Ex2.txt")
+Sintatico.Lexico.arquivoOpen("Exemplos/Ex2.txt")
 
 Sintatico.sintaticoProgram()
