@@ -1,7 +1,5 @@
 import Lexico
-
-def mensagemErro(token, token_esperado):
-    print(f"Esperado {token_esperado} mas recebeu um {token["valor"]} do tipo {token["tipo"]} na linha:{Lexico.num_linha}")
+from SintaticoExpr import mensagemErro
 
 def sintaticoExpr(tipo=0):
     print("Entrou no Expr")
