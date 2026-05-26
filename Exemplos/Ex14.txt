@@ -19,3 +19,9 @@ class Main inherits IO {
         }
     };
 };
+
+class Dog inherits Animal {
+    bark() : String {
+        "Woof!\n"
+    };
+};
