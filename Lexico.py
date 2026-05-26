@@ -8,8 +8,8 @@ prox_token = None
 
 def arquivoOpen(nome):
     global f, c
-    f = open(nome, "r")
-    c = f.read(1) # Inicializa o primeiro caractere aqui
+    f = open(nome, "r", encoding="utf-8")
+    c = f.read(1)
 
 def tipador(palavra):
     print(palavra)
@@ -23,10 +23,9 @@ def tipador(palavra):
         token["tipo"] = "Numero"
     elif palavra in ["+", "-", "<", "<=", "=>", "<-", "*", "/", "~", "="]:
         token["tipo"] = "Operador"
-    elif palavra in "{}();:~.,@": # Removi o +-*/= daqui pois são operadores
+    elif palavra in "{}();:~.,@":
         token["tipo"] = "Delimitador"
     
-    # Palavras Reservadas (Case Insensitive exceto true/false que começam com minúscula)
     pr_list = ["class","inherits","if","then","fi","while","loop","pool","let","in","case","of","esac","new","isvoid","not"]
     if palavra.lower() in pr_list or palavra in ["true", "false"]:
         token["tipo"] = "PR"
@@ -47,7 +46,6 @@ def lexico():
         return token
 
     while True:
-        # 1. Pular espaços e contar linhas
         while c and c in ' \t\r\n':
             if c == '\n':
                 num_linha += 1
@@ -56,7 +54,6 @@ def lexico():
         if not c:
             return tipador("Fim do Arquivo")
 
-        # 2. Comentário de Bloco (* *)
         if c == '(':
             proximo = f.read(1)
             if proximo == '*':
@@ -78,7 +75,6 @@ def lexico():
                 c = proximo 
                 return tipador(aux)
 
-        # 3. Comentário de Linha -- OU Operador -
         if c == '-':
             proximo = f.read(1)
             if proximo == '-':
@@ -90,7 +86,6 @@ def lexico():
                 c = proximo
                 return tipador(aux)
 
-        # 4. Operadores Compostos e Simples (<, <-, <=, =, =>)
         if c == '<':
             proximo = f.read(1)
             if proximo in ['-', '=']:
@@ -113,7 +108,6 @@ def lexico():
                 c = proximo
                 return tipador(val)
 
-        # 5. Strings
         if c == '"':
             palavra = '"'
             c = f.read(1)
@@ -128,7 +122,6 @@ def lexico():
             c = f.read(1)
             return tipador(palavra)
 
-        # 6. Identificadores e Números
         if c.isalnum() or c == '_':
             palavra = ""
             while c and (c.isalnum() or c == '_'):
@@ -136,16 +129,11 @@ def lexico():
                 c = f.read(1)
             return tipador(palavra)
 
-        # 7. Delimitadores E Operadores Restantes (+, *, /, ~, etc.)
-        # Adicionei todos os símbolos que o COOL usa aqui
         if c in "{}();:~+*/.,@":
             aux = c
             c = f.read(1)
             return tipador(aux)
 
-        # Se for um caractere que não reconhecemos (ex: um símbolo estranho)
-        # imprimimos para depuração e pulamos
-        # print(f"Caractere ignorado: {c}")
         c = f.read(1)
                 
 
