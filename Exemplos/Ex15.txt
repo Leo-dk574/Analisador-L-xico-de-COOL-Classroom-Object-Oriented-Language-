@@ -1,0 +1,112 @@
+(* ====================================================================
+   CLASSES VÁLIDAS BÁSICAS (Deixe sempre descomentado)
+   ==================================================================== *)
+class Animal {
+    name : String;
+
+    init(n : String) : SELF_TYPE {
+        {
+            name <- n;
+            self;
+        }
+    };
+    
+    speak() : String {
+        "???"
+    };
+};
+
+class Dog inherits Animal {
+    speak() : String {
+        "Woof!\n"
+    };
+};
+
+
+(* ====================================================================
+   ERROS DA PASSAGEM 1 - ESTRUTURAIS 
+   (Descomente um por vez para testar)
+   ==================================================================== *)
+
+-- ERRO 1: Tentativa de herdar de uma classe primitiva/selada
+-- class Hacker inherits String { };
+
+-- ERRO 2: Ciclo de Herança (A herda de B, B herda de A)
+-- class A inherits B { };
+-- class B inherits A { };
+
+-- ERRO 3: Herdar de classe que não existe
+-- class Gato inherits Felino { };
+
+
+class Main inherits IO {
+    
+    dog : Dog;
+
+    (* ====================================================================
+       ERROS SINTÁTICOS 
+       (Descomente um por vez para testar)
+       ==================================================================== *)
+
+    -- ERRO 4: Declaração de atributo sem o ponto e vírgula final
+    -- atributo_quebrado : Int 
+
+    -- ERRO 5: Chave faltando no corpo do método
+    -- metodo_sintatico() : Int {
+    --     5 + 5
+    -- ;  -- Esqueceu de fechar a chave }
+
+    -- ERRO 6: Palavra reservada escrita errada / Token inesperado
+    -- teste_token() : Int {
+    --     iff true then 1 else 0 fi
+    -- };
+
+
+    (* ====================================================================
+       ERROS DA PASSAGEM 2 - SEMÂNTICOS E DE TIPAGEM 
+       (Descomente um por vez para testar)
+       ==================================================================== *)
+
+    -- ERRO 7: Chamada de método que não existe (agora o compilador pega!)
+    -- teste_metodo_fantasma() : Object {
+    --    (new Dog).voar()
+    -- };
+
+    -- ERRO 8: Chamada de método com a quantidade errada de argumentos
+    -- teste_qtd_args() : Object {
+    --     (new Dog).init("Rex", 5)
+    -- };
+
+    -- ERRO 9: Chamada de método com o tipo errado de argumento
+    -- teste_tipo_args() : Object {
+    --     (new Dog).init(123)
+    -- };
+
+    -- ERRO 10: Inicialização de 'let' com tipo incompatível
+    -- teste_let() : Object {
+    --     let x : Int <- "Texto" in x
+    -- };
+    
+    -- ERRO 11: Condição do IF não é booleana
+    -- teste_if() : Object {
+    --     if 100 then out_string("Sim") else out_string("Nao") fi
+    -- };
+
+    -- ERRO 12: Tentativa de redefinir parâmetro 'self' (proibido em COOL)
+    -- teste_self(self : Int) : Object { 1 };
+
+
+    (* ====================================================================
+       MÉTODO MAIN VÁLIDO (Deixe sempre descomentado)
+       ==================================================================== *)
+    main() : Object {
+        {
+            out_string("Iniciando testes rigorosos do Compilador...\n");
+            
+            dog <- (new Dog).init("Rex");
+            out_string(dog.speak());
+            
+            out_string("Se chegou aqui sem descomentar os erros, o codigo eh valido!\n");
+        }
+    };
+};

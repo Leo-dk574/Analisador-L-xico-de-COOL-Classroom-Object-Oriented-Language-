@@ -1,0 +1,27 @@
+class Animal {
+    name : String;
+
+    init(n : String) : SELF_TYPE {
+        {
+            name <- n;
+            self;
+        }
+    };
+};
+
+class Main inherits IO {
+    main() : Object {
+        {
+            out_string("Iniciando bateria de testes...\n");
+            
+            let d : Dog <- (new Dog).init("Rex") in
+                out_string(d.bark());
+        }
+    };
+};
+
+class Dog inherits Animal {
+    bark() : String {
+        "Woof!\n"
+    };
+};

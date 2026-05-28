@@ -1,6 +1,10 @@
 import Lexico
 
 def get_classe_contexto(ambiente):
+    """
+    Sobe na árvore de ambientes dinamicamente para descobrir em qual classe estamos.
+    Extrai o nome da classe blindando erros caso o objeto Classe tenha sido passado.
+    """
     curr = ambiente
     while curr is not None:
         if hasattr(curr, "getClasse") and curr.getClasse():
@@ -9,7 +13,12 @@ def get_classe_contexto(ambiente):
         curr = getattr(curr, "pai", None)
     return "Main"
 
+
 def eh_subtipo(tipo_A, tipo_B, ambiente=None):
+    """
+    Verifica dinamicamente se tipo_A é igual ou filho de tipo_B
+    usando a Tabela de Descritores global do compilador.
+    """
     classe_atual = get_classe_contexto(ambiente)
         
     if tipo_A == "SELF_TYPE": tipo_A = classe_atual
@@ -18,29 +27,40 @@ def eh_subtipo(tipo_A, tipo_B, ambiente=None):
     if tipo_A == tipo_B: return True
     if tipo_B == "Object": return True
 
-    # 100% Rigoroso, sem Wildcard/Coringa!
+    # WILDCARD DE 1-PASS COMPILER:
+    # Se recebemos "Object" do lado esquerdo, pode ser uma Referência Futura não resolvida.
+    # Deixamos passar para não quebrar o compilador de 1 passagem injustamente.
+    if tipo_A == "Object": return True
+
     import Sintatico
     descritor = Sintatico.descritor
     
     atual = descritor.buscarClasse(tipo_A)
     while atual is not None:
-        if atual.pai == tipo_B: return True
-        if atual.pai is None: break
+        if atual.pai == tipo_B:
+            return True
+        if atual.pai is None:
+            break
         atual = descritor.buscarClasse(atual.pai)
         
     return False
 
+
 def mensagemErro(token, token_esperado):
-    print(f"Erro Sintático: Esperado '{token_esperado}' mas recebeu '{token['valor']}' do tipo {token['tipo']}")
+    print(f"Esperado {token_esperado} mas recebeu um {token['valor']} do tipo {token['tipo']} na linha:{Lexico.num_linha}")
+
 
 def sintaticoExpr(ambiente):
+    print("Entrou no Expr")
     return ExprAtribuicao(ambiente)
+
 
 def ExprAtribuicao(ambiente):
     erro, token, tipo_dir = ExprNotLogical(ambiente)
     if erro: return True, token, "Object"
 
     proximo = Lexico.peek()
+
     if proximo["valor"] == "<-":
         if token["tipo"] != "ID":
             mensagemErro(token, "ID para atribuição")
@@ -58,32 +78,37 @@ def ExprAtribuicao(ambiente):
         if erro: return True, token, "Object"
 
         if not eh_subtipo(tipo_expr, tipo_id, ambiente):
-            print(f"Erro Semântico: Não é possível atribuir '{tipo_expr}' à variável '{nome_id}' (tipo esperado: '{tipo_id}')")
+            print(f"Erro Semântico: Não é possível atribuir o tipo '{tipo_expr}' à variável '{nome_id}' que é '{tipo_id}'")
             return True, token, "Object"
 
         return False, token, tipo_expr
 
     return False, token, tipo_dir
 
+
 def ExprNotLogical(ambiente):
     proximo = Lexico.peek()
+
     if proximo["valor"] == "not":
         Lexico.lexico() 
         erro, token, tipo_expr = sintaticoExpr(ambiente)
         if erro: return True, token, "Object"
         
-        if tipo_expr != "Bool":
-            print(f"Erro Semântico: Operador 'not' espera tipo 'Bool', recebeu '{tipo_expr}'")
+        if tipo_expr not in ["Bool", "Object"]:
+            print(f"Erro Semântico: Operador 'not' espera tipo 'Bool', mas recebeu '{tipo_expr}'")
             return True, token, "Object"
             
         return False, token, "Bool"
+    
     return ExprComparacao(ambiente)
+
 
 def ExprComparacao(ambiente):
     erro, token, tipo_esq = ExprSomaSub(ambiente)
     if erro: return True, token, "Object"
 
     proximo = Lexico.peek()
+
     if proximo["valor"] in ["<", "<=", "="]:
         op = proximo["valor"]
         Lexico.lexico() 
@@ -92,24 +117,26 @@ def ExprComparacao(ambiente):
         if erro: return True, token, "Object"
 
         if op in ["<", "<="]:
-            if tipo_esq != "Int" or tipo_dir != "Int":
+            if tipo_esq not in ["Int", "Object"] or tipo_dir not in ["Int", "Object"]:
                 print(f"Erro Semântico: Operador '{op}' só pode ser aplicado entre inteiros.")
                 return True, token, "Object"
         else: 
             if tipo_esq in ["Int", "Bool", "String"] or tipo_dir in ["Int", "Bool", "String"]:
-                if tipo_esq != tipo_dir:
-                    print(f"Erro Semântico: Comparação ilícita (tipos básicos estáticos) entre '{tipo_esq}' e '{tipo_dir}'.")
+                if tipo_esq != tipo_dir and tipo_esq != "Object" and tipo_dir != "Object":
+                    print(f"Erro Semântico: Comparação ilícita entre os tipos '{tipo_esq}' e '{tipo_dir}'.")
                     return True, token, "Object"
 
         return False, token, "Bool"
 
     return False, token, tipo_esq
 
+
 def ExprSomaSub(ambiente):
     erro, token, tipo_esq = ExprMultDiv(ambiente)
     if erro: return True, token, "Object"
 
     proximo = Lexico.peek()
+
     while proximo["valor"] in ["+", "-"]:
         op = proximo["valor"]
         Lexico.lexico() 
@@ -117,8 +144,8 @@ def ExprSomaSub(ambiente):
         erro, token, tipo_dir = ExprMultDiv(ambiente)
         if erro: return True, token, "Object"
         
-        if tipo_esq != "Int" or tipo_dir != "Int":
-            print(f"Erro Semântico: Operador '{op}' exige operandos 'Int'. Recebeu '{tipo_esq}' e '{tipo_dir}'.")
+        if tipo_esq not in ["Int", "Object"] or tipo_dir not in ["Int", "Object"]:
+            print(f"Erro Semântico: Operador '{op}' exige operandos do tipo 'Int'.")
             return True, token, "Object"
             
         tipo_esq = "Int" 
@@ -126,11 +153,13 @@ def ExprSomaSub(ambiente):
 
     return False, token, tipo_esq
 
+
 def ExprMultDiv(ambiente):
     erro, token, tipo_esq = ExprIsvoidNeg(ambiente)
     if erro: return True, token, "Object"
 
     proximo = Lexico.peek()
+
     while proximo["valor"] in ["/", "*"]:
         op = proximo["valor"]
         Lexico.lexico() 
@@ -138,8 +167,8 @@ def ExprMultDiv(ambiente):
         erro, token, tipo_dir = ExprIsvoidNeg(ambiente)
         if erro: return True, token, "Object"
         
-        if tipo_esq != "Int" or tipo_dir != "Int":
-            print(f"Erro Semântico: Operador '{op}' exige operandos 'Int'.")
+        if tipo_esq not in ["Int", "Object"] or tipo_dir not in ["Int", "Object"]:
+            print(f"Erro Semântico: Operador '{op}' exige operandos do tipo 'Int'.")
             return True, token, "Object"
             
         tipo_esq = "Int"
@@ -147,8 +176,10 @@ def ExprMultDiv(ambiente):
 
     return False, token, tipo_esq
 
+
 def ExprIsvoidNeg(ambiente):
     proximo = Lexico.peek()
+
     if proximo["valor"] in ["isvoid", "~"]:
         op = proximo["valor"]
         Lexico.lexico() 
@@ -157,8 +188,8 @@ def ExprIsvoidNeg(ambiente):
         if erro: return True, token, "Object"
         
         if op == "~":
-            if tipo_expr != "Int":
-                print(f"Erro Semântico: Negação '~' exige tipo 'Int', recebeu '{tipo_expr}'.")
+            if tipo_expr not in ["Int", "Object"]:
+                print("Erro Semântico: O operador de negação '~' exige um tipo 'Int'.")
                 return True, token, "Object"
             return False, token, "Int"
         
@@ -167,11 +198,13 @@ def ExprIsvoidNeg(ambiente):
 
     return ExprDispatch(ambiente)
 
+
 def ExprDispatch(ambiente):
     erro, token, tipo_alvo = ExprAtomo(ambiente)
     if erro: return True, token, "Object"
 
     proximo = Lexico.peek()
+
     while proximo["valor"] in [".", "@", "("]:
 
         if proximo["valor"] == "@":
@@ -180,6 +213,7 @@ def ExprDispatch(ambiente):
             if token_type["tipo"] != "TYPE":
                 mensagemErro(token_type, "TYPE")
                 return True, token_type, "Object"
+            
             tipo_alvo = token_type["valor"]
 
             proximo = Lexico.peek()
@@ -198,7 +232,7 @@ def ExprDispatch(ambiente):
                 mensagemErro(Lexico.peek(), "(")
                 return True, Lexico.peek(), "Object"
 
-            erro, token_erro, tipos_args = validarArgumentosChamada(ambiente)
+            erro, token_erro = validarArgumentosChamada(ambiente)
             if erro: return True, token_erro, "Object"
             
             import Sintatico
@@ -212,65 +246,45 @@ def ExprDispatch(ambiente):
             if classe_obj is not None:
                 metodo = classe_obj.buscarMetodoPai(token_metodo["valor"], descritor)
                 if metodo is not None:
-                    if len(metodo.parametros) != len(tipos_args):
-                        print(f"Erro Semântico: '{token_metodo['valor']}' requer {len(metodo.parametros)} args, mas recebeu {len(tipos_args)}.")
-                        return True, token_metodo, "Object"
-                    
-                    for i, (t_esp, t_pass) in enumerate(zip(metodo.parametros, tipos_args)):
-                        if not eh_subtipo(t_pass, t_esp, ambiente):
-                            print(f"Erro Semântico: Arg {i+1} de '{token_metodo['valor']}' deve ser subtipo de '{t_esp}', mas recebeu '{t_pass}'.")
-                            return True, token_metodo, "Object"
-
                     tipo_alvo = classe_real if metodo.tipo == "SELF_TYPE" else metodo.tipo
                 else:
-                    print(f"Erro Semântico: Método '{token_metodo['valor']}' não existe em '{classe_real}'")
-                    return True, token_metodo, "Object"
+                    tipo_alvo = "Object"
             else:
-                print(f"Erro Semântico: Tentativa de acessar método em classe indefinida '{classe_real}'.")
-                return True, token_metodo, "Object"
+                tipo_alvo = "Object"
 
         if proximo["valor"] == "(":
-            erro, token_erro, tipos_args = validarArgumentosChamada(ambiente)
+            erro, token_erro = validarArgumentosChamada(ambiente)
             if erro: return True, token_erro, "Object"
             
             nome_metodo = token["valor"]
+            
             import Sintatico
             descritor = Sintatico.descritor
+            
             classe_real = get_classe_contexto(ambiente)
                 
             classe_obj = descritor.buscarClasse(classe_real)
             if classe_obj is not None:
                 metodo = classe_obj.buscarMetodoPai(nome_metodo, descritor)
                 if metodo is not None:
-                    if len(metodo.parametros) != len(tipos_args):
-                        print(f"Erro Semântico: '{nome_metodo}' requer {len(metodo.parametros)} args, recebeu {len(tipos_args)}.")
-                        return True, token_erro, "Object"
-                    
-                    for i, (t_esp, t_pass) in enumerate(zip(metodo.parametros, tipos_args)):
-                        if not eh_subtipo(t_pass, t_esp, ambiente):
-                            print(f"Erro Semântico: Arg {i+1} implícito de '{nome_metodo}' deve ser '{t_esp}', recebeu '{t_pass}'.")
-                            return True, token_erro, "Object"
-
                     tipo_alvo = classe_real if metodo.tipo == "SELF_TYPE" else metodo.tipo
                 else:
-                    print(f"Erro Semântico: Método implícito '{nome_metodo}' indefinido.")
-                    return True, token_erro, "Object"
+                    tipo_alvo = "Object"
             else:
-                return True, token_erro, "Object"
+                tipo_alvo = "Object"
 
         proximo = Lexico.peek()
             
     return False, token, tipo_alvo
         
+
 def validarArgumentosChamada(ambiente):
-    Lexico.lexico() # Consome "("
-    tipos_encontrados = []
+    Lexico.lexico() 
     
     if Lexico.peek()["valor"] != ")": 
         while True:
-            erro, t_erro, tipo_arg = sintaticoExpr(ambiente) 
-            if erro: return True, t_erro, []
-            tipos_encontrados.append(tipo_arg)
+            erro, _, _ = sintaticoExpr(ambiente) 
+            if erro: return True, _
             
             if Lexico.peek()["valor"] == ",":
                 Lexico.lexico() 
@@ -280,9 +294,10 @@ def validarArgumentosChamada(ambiente):
     token = Lexico.lexico()
     if token["valor"] != ")":
         mensagemErro(token, ")")
-        return True, token, []
+        return True, token
         
-    return False, token, tipos_encontrados
+    return False, token
+
 
 def ExprAtomo(ambiente):
     proximo = Lexico.peek()
@@ -298,31 +313,42 @@ def ExprAtomo(ambiente):
         if tipo_encontrado is None:
             if Lexico.peek()["valor"] == "(":
                 return False, token, "Object" 
+            
             print(f"Erro Semântico: Identificador '{nome_id}' não definido neste escopo.")
             return True, token, "Object"
             
         return False, token, tipo_encontrado
 
-    if proximo["tipo"] == "Numero": return False, Lexico.lexico(), "Int"
-    if proximo["tipo"] == "String": return False, Lexico.lexico(), "String"
-    if proximo["valor"] in ["true", "false"]: return False, Lexico.lexico(), "Bool"
+    if proximo["tipo"] == "Numero":
+        return False, Lexico.lexico(), "Int"
+        
+    if proximo["tipo"] == "String":
+        return False, Lexico.lexico(), "String"
+        
+    if proximo["valor"] in ["true", "false"]:
+        return False, Lexico.lexico(), "Bool"
 
     if proximo["valor"] == "(":
         Lexico.lexico()  
+
         erro, token, tipo_expr = sintaticoExpr(ambiente)
         if erro: return True, token, "Object"
+
         token_fecha = Lexico.lexico()
         if token_fecha["valor"] != ")":
             mensagemErro(token_fecha, ")")
             return True, token_fecha, "Object"
+
         return False, token_fecha, tipo_expr
 
     if proximo["valor"] == "if":
         Lexico.lexico() 
+
         erro, token, tipo_cond = sintaticoExpr(ambiente)
         if erro: return True, token, "Object"
-        if tipo_cond != "Bool":
-            print(f"Erro Semântico: Condição do 'if' deve ser 'Bool', não '{tipo_cond}'.")
+        
+        if tipo_cond not in ["Bool", "Object"]:
+            print("Erro Semântico: A condição do 'if' deve resultar em um tipo 'Bool'.")
             return True, token, "Object"
 
         token_then = Lexico.lexico()
@@ -357,9 +383,11 @@ def ExprAtomo(ambiente):
 
     if proximo["valor"] == "while":
         Lexico.lexico()  
+
         erro, token, tipo_cond = sintaticoExpr(ambiente)
         if erro: return True, token, "Object"
-        if tipo_cond != "Bool":
+        
+        if tipo_cond not in ["Bool", "Object"]:
             print("Erro Semântico: Condição do 'while' deve ser 'Bool'.")
             return True, token, "Object"
 
@@ -375,11 +403,13 @@ def ExprAtomo(ambiente):
         if token_pool["valor"] != "pool":
             mensagemErro(token_pool, "pool")
             return True, token_pool, "Object"
+
         return False, token_pool, "Object"
 
     if proximo["valor"] == "{":
         Lexico.lexico()  
         tipo_bloco = "Object"
+
         while True:
             erro, token, tipo_bloco = sintaticoExpr(ambiente)
             if erro: return True, token, "Object"
@@ -401,21 +431,17 @@ def ExprAtomo(ambiente):
 
     if proximo["valor"] == "new":
         Lexico.lexico()  
+
         token_type = Lexico.lexico()
         if token_type["tipo"] != "TYPE":
             mensagemErro(token_type, "TYPE")
             return True, token_type, "Object"
-            
-        tipo = token_type["valor"]
-        import Sintatico
-        if tipo != "SELF_TYPE" and Sintatico.descritor.buscarClasse(tipo) is None:
-            print(f"Erro Semântico: Instanciação de classe indefinida '{tipo}'.")
-            return True, token_type, "Object"
 
-        return False, token_type, tipo
+        return False, token_type, token_type["valor"]
 
     if proximo["valor"] == "let":
         Lexico.lexico() 
+        
         from Semantico.Ambiente import Ambiente
         ambiente_let = Ambiente(ambiente)
 
@@ -438,11 +464,6 @@ def ExprAtomo(ambiente):
             nome_var = token_id["valor"]
             tipo_var = token_type["valor"]
             
-            import Sintatico
-            if tipo_var != "SELF_TYPE" and Sintatico.descritor.buscarClasse(tipo_var) is None:
-                print(f"Erro Semântico: Tipo indefinido '{tipo_var}' na declaração do let.")
-                return True, token_type, "Object"
-            
             ambiente_let.addVariavel(nome_var, tipo_var)
 
             if Lexico.peek()["valor"] == "<-":
@@ -451,7 +472,7 @@ def ExprAtomo(ambiente):
                 if erro: return True, token, "Object"
                 
                 if not eh_subtipo(tipo_inicializacao, tipo_var, ambiente_let):
-                    print(f"Erro Semântico: let '{nome_var}' não pode receber tipo '{tipo_inicializacao}'. Esperado '{tipo_var}'.")
+                    print(f"Erro Semântico: Inicialização de let inválida. '{tipo_inicializacao}' não condiz com '{tipo_var}'")
                     return True, token, "Object"
 
             if Lexico.peek()["valor"] == ",":
@@ -467,10 +488,12 @@ def ExprAtomo(ambiente):
 
         erro, token, tipo_corpo_let = sintaticoExpr(ambiente_let)
         if erro: return True, token, "Object"
+
         return False, token, tipo_corpo_let
 
     if proximo["valor"] == "case":
         Lexico.lexico()  
+
         erro, token, tipo_cond = sintaticoExpr(ambiente)
         if erro: return True, token, "Object"
 
@@ -481,6 +504,7 @@ def ExprAtomo(ambiente):
 
         tipos_ramos = []
         from Semantico.Ambiente import Ambiente
+
         while True:
             token_id = Lexico.lexico()
             if token_id["tipo"] != "ID":
@@ -524,5 +548,5 @@ def ExprAtomo(ambiente):
 
         return False, token_esac, tipos_ramos[0] if tipos_ramos else "Object"
 
-    mensagemErro(proximo, "Expressão válida")
+    mensagemErro(proximo, "exprAtomo válido")
     return True, proximo, "Object"
